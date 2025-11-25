@@ -8,7 +8,4 @@
 - Eduardo - Base de datos
 - Sergio - Qua
 
-## Cómo usar el sistema:
 
-### 1. Instalar dependencias
-```bash
