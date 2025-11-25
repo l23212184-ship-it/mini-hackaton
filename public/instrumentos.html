@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Instrumentos – Laboratorio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-light">
+
+  <!-- Navbar se carga por JS -->
+  <div id="navbar"></div>
+
+  <div class="container mb-5">
+    <div class="card shadow-sm card-main p-3 p-md-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div>
+          <h2 class="h4 mb-0">Instrumentos</h2>
+          <small class="text-muted">Gestión de inventario del laboratorio</small>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+          <input
+            type="text"
+            id="searchInput"
+            class="form-control form-control-sm search-input"
+            placeholder="Buscar..."
+          />
+          <button class="btn btn-sm btn-outline-secondary" id="btnBuscar">
+            Buscar
+          </button>
+          <button class="btn btn-sm btn-outline-success" id="btnDescargar">
+            Descargar Excel
+          </button>
+
+          <form id="formExcel" class="d-inline">
+            <label class="btn btn-sm btn-outline-primary mb-0">
+              Subir Excel
+              <input type="file" id="archivoExcel" hidden />
+            </label>
+          </form>
+        </div>
+      </div>
+
+      <!-- Formulario de creación/edición -->
+      <form id="formInstrumento" class="row g-2 mb-3">
+        <input type="hidden" id="instId" />
+
+        <div class="col-md-3">
+          <label class="form-label mb-1">Nombre</label>
+          <input type="text" id="instNombre" class="form-control form-control-sm" required />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label mb-1">Categoría</label>
+          <input type="text" id="instCategoria" class="form-control form-control-sm" required />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label mb-1">Estado</label>
+          <select id="instEstado" class="form-select form-select-sm">
+            <option value="DISPONIBLE">DISPONIBLE</option>
+            <option value="PRESTADO">PRESTADO</option>
+            <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label mb-1">Ubicación</label>
+          <input type="text" id="instUbicacion" class="form-control form-control-sm" />
+        </div>
+
+        <div class="col-md-1 d-flex align-items-end">
+          <button class="btn btn-primary btn-sm w-100" type="submit" id="btnGuardar">
+            Guardar
+          </button>
+        </div>
+      </form>
+
+      <!-- Tabla -->
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Estado</th>
+              <th>Ubicación</th>
+              <th class="text-end" data-col="acciones">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaInstrumentos"></tbody>
+        </table>
+      </div>
+
+      <div id="msgInstru" class="small text-danger mt-1"></div>
+    </div>
+  </div>
+
+  <script>
+    // ================= NAVBAR Y SESIÓN =================
+    async function cargarNavbar() {
+      const res = await fetch("navbar.html");
+      const html = await res.text();
+      document.getElementById("navbar").innerHTML = html;
+
+      const rol = localStorage.getItem("rol") || "---";
+      const navRol = document.getElementById("navRol");
+      if (navRol) navRol.textContent = rol;
+
+      const linkUsuarios = document.getElementById("linkUsuarios");
+      if (rol !== "ADMIN" && linkUsuarios) {
+        linkUsuarios.style.display = "none";
+      }
+
+      const btnLogout = document.getElementById("btnLogout");
+      if (btnLogout) {
+        btnLogout.addEventListener("click", async () => {
+          await fetch("/api/auth/logout", { method: "POST" });
+          localStorage.clear();
+          window.location.href = "login.html";
+        });
+      }
+    }
+
+    // Si no hay sesión, mandar al login
+    if (!localStorage.getItem("correo")) {
+      window.location.href = "login.html";
+    } else {
+      cargarNavbar();
+    }
+
+    // ================= VARIABLES GLOBALES =================
+    const rolActual = localStorage.getItem("rol") || "";
+    const esSoloLectura = rolActual === "AUDITOR";
+
+    const tabla = document.getElementById("tablaInstrumentos");
+    const form = document.getElementById("formInstrumento");
+    const msg = document.getElementById("msgInstru");
+
+    // Ajustes visuales para AUDITOR (solo lectura)
+    if (esSoloLectura) {
+      const formInstrumento = document.getElementById("formInstrumento");
+      if (formInstrumento) formInstrumento.style.display = "none";
+
+      const formExcel = document.getElementById("formExcel");
+      if (formExcel) formExcel.style.display = "none";
+
+      const thAcciones = document.querySelector("th[data-col='acciones']");
+      if (thAcciones) thAcciones.style.display = "none";
+    }
+
+    // ================= CARGAR INSTRUMENTOS =================
+    async function cargarInstrumentos(q = "") {
+      msg.textContent = "";
+      const url = q
+        ? `/api/instrumentos/buscar?q=${encodeURIComponent(q)}`
+        : "/api/instrumentos";
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.ok) {
+        msg.textContent = data.msg || "Error al cargar instrumentos";
+        return;
+      }
+
+      tabla.innerHTML = "";
+      data.data.forEach((inst) => {
+        const tr = document.createElement("tr");
+        let accionesHtml = "";
+
+        if (!esSoloLectura) {
+          // Solo ADMIN y ASISTENTE ven botones
+          accionesHtml = `
+            <td class="text-end">
+              <button class="btn btn-xs btn-outline-primary me-1 btn-edit">Editar</button>
+              ${
+                rolActual === "ADMIN"
+                  ? '<button class="btn btn-xs btn-outline-danger btn-del">Eliminar</button>'
+                  : ""
+              }
+            </td>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td>${inst.id}</td>
+          <td>${inst.nombre}</td>
+          <td>${inst.categoria}</td>
+          <td>
+            <span class="badge badge-status bg-${
+              inst.estado === "DISPONIBLE"
+                ? "success"
+                : inst.estado === "PRESTADO"
+                ? "warning"
+                : "secondary"
+            }">${inst.estado}</span>
+          </td>
+          <td>${inst.ubicacion || ""}</td>
+          ${accionesHtml}
+        `;
+
+        // Listeners solo si NO es auditor
+        if (!esSoloLectura) {
+          const btnEdit = tr.querySelector(".btn-edit");
+          if (btnEdit) {
+            btnEdit.addEventListener("click", () => {
+              document.getElementById("instId").value = inst.id;
+              document.getElementById("instNombre").value = inst.nombre;
+              document.getElementById("instCategoria").value = inst.categoria;
+              document.getElementById("instEstado").value = inst.estado;
+              document.getElementById("instUbicacion").value = inst.ubicacion || "";
+              document.getElementById("btnGuardar").textContent = "Actualizar";
+            });
+          }
+
+          const btnDel = tr.querySelector(".btn-del");
+          if (btnDel) {
+            btnDel.addEventListener("click", async () => {
+              if (!confirm("¿Eliminar instrumento?")) return;
+              const resDel = await fetch(`/api/instrumentos/${inst.id}`, {
+                method: "DELETE",
+              });
+              const dataDel = await resDel.json();
+              if (dataDel.ok) cargarInstrumentos();
+              else alert(dataDel.msg || "Error al eliminar");
+            });
+          }
+        }
+
+        tabla.appendChild(tr);
+      });
+    }
+
+    // ================= FORM SUBMIT (ADMIN / ASISTENTE) =================
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (esSoloLectura) return; // por si acaso
+      msg.textContent = "";
+
+      const id = document.getElementById("instId").value;
+      const payload = {
+        nombre: document.getElementById("instNombre").value.trim(),
+        categoria: document.getElementById("instCategoria").value.trim(),
+        estado: document.getElementById("instEstado").value,
+        ubicacion: document.getElementById("instUbicacion").value.trim(),
+      };
+
+      const url = id ? `/api/instrumentos/${id}` : "/api/instrumentos";
+      const method = id ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!data.ok) {
+        msg.textContent = data.msg || "Error al guardar";
+        return;
+      }
+
+      form.reset();
+      document.getElementById("instId").value = "";
+      document.getElementById("btnGuardar").textContent = "Guardar";
+      cargarInstrumentos();
+    });
+
+    // ================= BÚSQUEDA =================
+    document.getElementById("btnBuscar").addEventListener("click", () => {
+      const q = document.getElementById("searchInput").value;
+      cargarInstrumentos(q);
+    });
+
+    document.getElementById("searchInput").addEventListener("keyup", (e) => {
+      if (e.key === "Enter") {
+        const q = e.target.value;
+        cargarInstrumentos(q);
+      }
+    });
+
+    // ================= EXCEL =================
+    document.getElementById("btnDescargar").addEventListener("click", () => {
+      window.location.href = "/api/instrumentos/download";
+    });
+
+    const archivoExcel = document.getElementById("archivoExcel");
+    if (archivoExcel) {
+      archivoExcel.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const fd = new FormData();
+        fd.append("archivo", file);
+
+        const res = await fetch("/api/instrumentos/upload", {
+          method: "POST",
+          body: fd,
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          alert("Excel importado correctamente");
+          cargarInstrumentos();
+        } else {
+          alert(data.msg || "Error al importar Excel");
+        }
+
+        e.target.value = "";
+      });
+    }
+
+    // ================= INICIO =================
+    cargarInstrumentos();
+  </script>
+</body>
+</html>

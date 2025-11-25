@@ -1,0 +1,90 @@
+/* General */
+body {
+  background-color: #f8f9fa;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Navbar */
+.navbar {
+  background-color: #1e3d58; /* Color oscuro para navbar */
+}
+
+.navbar .navbar-brand {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 2px;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.navbar .navbar-nav .nav-link {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin-right: 20px;
+  transition: color 0.3s ease;
+}
+
+.navbar .navbar-nav .nav-link:hover {
+  color: #a5d8ff; /* Un azul más suave en hover */
+}
+
+.navbar .navbar-nav .nav-item.active .nav-link {
+  color: #ff8c00; /* Color para el link activo */
+}
+
+/* Logo */
+.brand-mark {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-right: 10px;
+  text-transform: uppercase;
+}
+
+/* Ajustes de la navbar, para móvil */
+.navbar-toggler {
+  border-color: #ffffff;
+}
+
+.navbar-toggler-icon {
+  background-color: #ffffff;
+}
+
+/* Barra de rol y Logout */
+.navbar-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.navbar-text .badge {
+  background-color: #0d6efd;
+}
+
+/* Botones */
+.btn-outline-light {
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  padding: 8px 16px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.btn-outline-light:hover {
+  background-color: #ffffff;
+  color: #1e3d58;
+}
+
+/* Responsividad (para móviles) */
+@media (max-width: 768px) {
+  .navbar-nav {
+    text-align: center;
+  }
+
+  .navbar .navbar-nav .nav-item {
+    margin-right: 0;
+    padding: 10px 0;
+  }
+}
+

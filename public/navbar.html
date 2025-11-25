@@ -1,0 +1,75 @@
+<nav class="navbar navbar-expand-lg navbar-dark navbar-elevated mb-4">
+  <div class="container-fluid">
+    <!-- Logo y nombre del sistema -->
+    <a class="navbar-brand fw-semibold d-flex align-items-center" href="instrumentos.html">
+      <span class="brand-mark">LAB</span> <!-- Este es el logo -->
+      <span>Sistema de Laboratorio</span> <!-- Texto -->
+    </a>
+
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navMain"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMain">
+      <!-- Links de navegación -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="instrumentos.html">Instrumentos</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="busqueda.html">Búsqueda</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="linkUsuarios" href="usuarios.html">Usuarios</a>
+        </li>
+      </ul>
+
+      <span class="navbar-text me-3">
+        Rol: <span id="navRol" class="badge bg-secondary">---</span>
+      </span>
+
+      <button id="btnLogout" class="btn btn-outline-light btn-sm">
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
+</nav>
+
+<script>
+  // Función para cargar el navbar correctamente y manejar el acceso
+  async function cargarNavbar() {
+    const res = await fetch("navbar.html");
+    const html = await res.text();
+    document.getElementById("navbar").innerHTML = html;
+
+    const rol = localStorage.getItem("rol") || "---"; // Obtiene el rol
+    const navRol = document.getElementById("navRol");
+    if (navRol) navRol.textContent = rol;
+
+    // Solo el ADMIN puede ver el link de "Usuarios"
+    const linkUsuarios = document.getElementById("linkUsuarios");
+    if (rol !== "ADMIN" && linkUsuarios) {
+      linkUsuarios.style.display = "none";  // Oculta el link si no es ADMIN
+    }
+
+    const btnLogout = document.getElementById("btnLogout");
+    if (btnLogout) {
+      btnLogout.addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        localStorage.clear();
+        window.location.href = "login.html";
+      });
+    }
+  }
+
+  if (!localStorage.getItem("correo")) {
+    window.location.href = "login.html";  // Si no está logueado, redirige al login
+  } else {
+    cargarNavbar();
+  }
+</script>
